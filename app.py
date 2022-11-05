@@ -1,4 +1,4 @@
-from flask import Flask, render_template
+from flask import Flask, render_template, request
 from flask_bootstrap import Bootstrap
 from flask_sqlalchemy import SQLAlchemy
 import requests
@@ -18,9 +18,9 @@ db = SQLAlchemy(app)
 
 #API DETAILS
 MOVIE_DB_API_KEY = '9b8b84460e164a6db815fdbc4e26def1'
-MOVIE_DB_SEARCH_URL = "https://api.themoviedb.org/3/search/movie"
-MOVIE_DB_INFO_URL = "https://api.themoviedb.org/3/movie"
-MOVIE_DB_IMAGE_URL = "https://image.tmdb.org/t/p/w500"
+SEARCH_ENDPOINT = "https://api.themoviedb.org/3/search/movie"
+MOVIE_INFO_ENDPOINT = "https://api.themoviedb.org/3/movie"
+MOVIE_IMAGE_URL = "https://image.tmdb.org/t/p/w500"
 
 #Creating Models
 class Movies(db.Model):
@@ -28,10 +28,10 @@ class Movies(db.Model):
     title = db.Column(db.String(250), nullable=False, unique = True)
     year = db.Column(db.Integer, nullable=False)
     description = db.Column(db.String(500), nullable=True)
+    img_url = db.Column(db.String(250), nullable=False)
     rating = db.Column(db.Float, nullable=True)
     ranking = db.Column(db.Integer, nullable=True)
     review = db.Column(db.String(250), nullable=True)
-    img_url = db.Column(db.String(250), nullable=False)
 
 with app.app_context():
     db.create_all() #It will create the movie table in the database
@@ -53,10 +53,29 @@ def add_movies():
     form = FindMovieForm()
     if form.validate_on_submit():
         movie_title = form.title.data
-        response = requests.get(MOVIE_DB_SEARCH_URL, params={'api_key' : MOVIE_DB_API_KEY, 'query': movie_title})
+        response = requests.get(SEARCH_ENDPOINT, params={'api_key' : MOVIE_DB_API_KEY, 'query': movie_title})
         data = response.json()["results"]
-        print(data)
+        print(type(data))
+        return render_template('select.html', movies = data)
     return render_template('add.html', form = form)
+
+@app.route('/find')
+def find_movie():
+    movie_id = request.args.get("id")
+    if movie_id:
+        complete_endpoint = f"{MOVIE_INFO_ENDPOINT}/{movie_id}"
+        response = requests.get(complete_endpoint, params={"api_key": MOVIE_DB_API_KEY})
+        data = response.json()
+        new_movie = Movies(
+            title = data["title"],
+            year = data["release_date"].split("-")[0],
+            img_url = f"{MOVIE_IMAGE_URL}{data['poster_path']}",
+            description = data["overview"],
+        )
+        db.session.add(new_movie)
+        db.session.commit()
+        return "Successfully Added"
+    return "Some Error Occured"
 
 
 if __name__ == '__main__':
