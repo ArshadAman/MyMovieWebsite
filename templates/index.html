@@ -21,30 +21,31 @@
     <h1 class="heading">My Top 10 Movies</h1>
     <p class="description">These are my all time favourite movies.</p>
       
+    {% for movie in all_movies %}
     <div class="card" >
-      <div class="front" style="background-image: url('https://www.themoviedb.org/t/p/w220_and_h330_face/kAVRgw7GgK1CfYEJq8ME6EvRIgU.jpg');">
-          <p class="large">Lorem</p>
+      <div class="front" style="background-image: url('{{movie.img_url}}');">
+          <p class="large">{{movie.title}}</p>
       </div>
       <div class="back">
         <div>
-      <div class="title"> <span class="release_date">(01/11/2022)</span></div>
+      <div class="title"> <span class="release_date">({{movie.year}})</span></div>
           <div class="rating">
-              <label></label>
+              <label>{{movie.rating}}</label>
             <i class="fas fa-star star"></i>
           </div>
-            <p class="review">9.8</p>
-          <p class="overview">Lorem ipsum dolor sit, amet consectetur adipisicing elit. Veniam rerum quod id ab fuga? Earum reprehenderit aut id consectetur atque?</p>
+            <p class="review">{{movie.review}}</p>
+          <p class="overview">{{movie.description | truncate}}</p>
   
-          <a href="" class="button">Update</a>
-          <a href="" class="button delete-button">Delete</a>
-  
+          <a href="{{url_for('rate__movie', id = movie.id)}}" class="button">Update</a>
+          <a href="{{url_for('delete__movie', id = movie.id)}}" class="button delete-button">Delete</a>
         </div>
       </div>
     </div>
+    {% endfor %}
       
   </div>
   <div class="container text-center add">
-  <a href="" class="button">Add Movie</a>
+  <a href="{{url_for('add_movies')}}" class="button">Add Movie</a>
   </div>
 {% endblock %}
 <!-- End of Body  -->

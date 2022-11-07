@@ -1,11 +1,11 @@
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, redirect, url_for
 from flask_bootstrap import Bootstrap
 from flask_sqlalchemy import SQLAlchemy
 import requests
 
 #Form Packages
 from flask_wtf import FlaskForm
-from wtforms import StringField, SubmitField
+from wtforms import StringField, SubmitField, FloatField
 from wtforms.validators import DataRequired
 
 app = Flask(__name__)
@@ -17,7 +17,7 @@ app.config["SQLALCHEMY_DATABASE_URI"] = 'sqlite:///movies.db'
 db = SQLAlchemy(app)
 
 #API DETAILS
-MOVIE_DB_API_KEY = ''
+MOVIE_DB_API_KEY = '9b8b84460e164a6db815fdbc4e26def1'
 SEARCH_ENDPOINT = "https://api.themoviedb.org/3/search/movie"
 MOVIE_INFO_ENDPOINT = "https://api.themoviedb.org/3/movie"
 MOVIE_IMAGE_URL = "https://image.tmdb.org/t/p/w500"
@@ -30,8 +30,8 @@ class Movies(db.Model):
     description = db.Column(db.String(500), nullable=True)
     img_url = db.Column(db.String(250), nullable=False)
     rating = db.Column(db.Float, nullable=True)
-    ranking = db.Column(db.Integer, nullable=True)
     review = db.Column(db.String(250), nullable=True)
+    ranking = db.Column(db.Integer, nullable=True)
 
 with app.app_context():
     db.create_all() #It will create the movie table in the database
@@ -42,11 +42,20 @@ class FindMovieForm(FlaskForm):
     title = StringField("Movie Name", validators=[DataRequired()])
     submit = SubmitField("Add Movie")
 
+class RatingForm(FlaskForm):
+    rating = FloatField("Rate the Movie out of 10")
+    review = StringField("What you felt about this movie: ")
+    submit = SubmitField("Rate Movie")
+
 
 #Routes and Views
 @app.route('/')
 def home():
-    return render_template('index.html')
+    all_movies = Movies.query.order_by(Movies.rating).all()
+    for i in range(len(all_movies)):
+        all_movies[i].ranking = len(all_movies) - i
+    db.session.commit()
+    return render_template('index.html', all_movies = all_movies)
 
 @app.route('/add', methods = ['POST', 'GET'])
 def add_movies():
@@ -55,7 +64,6 @@ def add_movies():
         movie_title = form.title.data
         response = requests.get(SEARCH_ENDPOINT, params={'api_key' : MOVIE_DB_API_KEY, 'query': movie_title})
         data = response.json()["results"]
-        print(type(data))
         return render_template('select.html', movies = data)
     return render_template('add.html', form = form)
 
@@ -74,9 +82,29 @@ def find_movie():
         )
         db.session.add(new_movie)
         db.session.commit()
-        return "Successfully Added"
+        return redirect(url_for('rate__movie', id = new_movie.id))
     return "Some Error Occured"
 
+@app.route("/edit", methods=["GET", "POST"])
+def rate__movie():
+    rating__form = RatingForm()
+    database_movie_id = request.args.get("id")
+    movie = Movies.query.get(database_movie_id)
+    if rating__form.validate_on_submit():
+        movie.rating = rating__form.rating.data
+        movie.review = rating__form.review.data
+        db.session.commit()
+        return redirect(url_for("home"))
+    return render_template('edit.html', form = rating__form, movie = movie)
+
+
+@app.route('/delete')
+def delete__movie():
+    db_id = request.args.get("id")
+    movie_to_be_deleted = Movies.query.get(db_id)
+    db.session.delete(movie_to_be_deleted)
+    db.session.commit()
+    return redirect(url_for("home"))
 
 if __name__ == '__main__':
     app.run(debug=True)
